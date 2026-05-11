@@ -43,6 +43,66 @@ req.file('avatar')
 For more detailed usage information and a full list of available options, see the Skipper docs, especially the section on "[Uploading to S3](https://github.com/balderdashy/skipper#uploading-files-to-s3)".
 
 
+## S3-compatible providers (Wasabi, MinIO, etc.)
+
+Two options are forwarded to the underlying `AWS.S3` client so you can point uploads at any S3-compatible provider or at AWS buckets that need path-style addressing:
+
+| Option             | Type     | When to set it                                                                                                                                                              |
+| ------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `endpoint`         | `string` | The provider's S3 endpoint. Leave unset (or `undefined`) to use AWS.                                                                                                        |
+| `s3ForcePathStyle` | `bool`   | `true` to use path-style URLs (`https://endpoint/bucket/key`). Required for most non-AWS providers and for AWS buckets whose names contain dots (SSL cert wildcard mismatch). |
+
+Both keys are passed through to `AWS.S3` v2 — see the [AWS SDK constructor docs](https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/S3.html#constructor-property) for the underlying semantics.
+
+### Example — Wasabi
+
+```javascript
+req.file('avatar')
+.upload({
+  adapter: require('skipper-s3'),
+  key:    'YOUR_WASABI_ACCESS_KEY',
+  secret: 'YOUR_WASABI_SECRET_KEY',
+  bucket: 'my-wasabi-bucket',
+  region: 'us-east-2',
+  endpoint:         'https://s3.us-east-2.wasabisys.com',
+  s3ForcePathStyle: true
+}, function whenDone(err, uploadedFiles) { /* … */ });
+```
+
+Wasabi requires the region in the credentials to match the region in the endpoint hostname (`us-east-1` ↔ `s3.wasabisys.com`, `us-east-2` ↔ `s3.us-east-2.wasabisys.com`, etc.). Path-style is recommended because Wasabi's virtual-hosted certs don't cover bucket names that contain dots.
+
+### Example — MinIO (self-hosted)
+
+```javascript
+req.file('avatar')
+.upload({
+  adapter: require('skipper-s3'),
+  key:    process.env.MINIO_ACCESS_KEY,
+  secret: process.env.MINIO_SECRET_KEY,
+  bucket: 'uploads',
+  region: 'us-east-1', // any value; MinIO ignores it but the SDK requires one
+  endpoint:         'http://minio.internal:9000',
+  s3ForcePathStyle: true
+}, function whenDone(err, uploadedFiles) { /* … */ });
+```
+
+### Example — AWS bucket name with dots
+
+```javascript
+req.file('avatar')
+.upload({
+  adapter: require('skipper-s3'),
+  key:    'AKIA…',
+  secret: '…',
+  bucket: 'media.example.com',
+  region: 'us-east-1',
+  s3ForcePathStyle: true   // no endpoint — still on AWS, just path-style
+}, function whenDone(err, uploadedFiles) { /* … */ });
+```
+
+Without `s3ForcePathStyle: true`, the SDK builds `https://media.example.com.s3.amazonaws.com/…` and the wildcard cert (`*.s3.amazonaws.com`) won't validate the extra dots.
+
+
 ## Contribute
 
 See [ROADMAP.md](https://github.com/balderdashy/skipper-s3/blob/master/ROADMAP.md).
