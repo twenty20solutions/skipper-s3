@@ -224,7 +224,10 @@ function _buildS3Client(s3ClientOpts) {
     accessKeyId: s3ClientOpts.key,
     secretAccessKey: s3ClientOpts.secret,
     ACL: s3ClientOpts.ACL,
-    endpoint: s3ClientOpts.endpoint
+    endpoint: s3ClientOpts.endpoint,
+    // Required for S3-compatible providers (Wasabi, MinIO) and for AWS buckets
+    // whose names contain dots, where virtual-hosted-style SSL certs don't match.
+    s3ForcePathStyle: s3ClientOpts.s3ForcePathStyle
   });
   return new AWS.S3(s3ConstructorArgins);
 }//ƒ
